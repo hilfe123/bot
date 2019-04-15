@@ -32,7 +32,6 @@ class Api:
         for i in range(0,800):
             self.tree.simulation()
         action_edge = max(node.edges,key=attrgetter('visits'))
-        print(action_edge.actionvalue)
         bot_action = action_edge.action
         bot_score,random_score = self.env.update_values(bot_action,random_action,env_action)
         x,y = self.tree.env.update_values(bot_action,random_action,env_action)
@@ -40,16 +39,26 @@ class Api:
 
         for loop_node in action_edge.targetNodes:
             if all(loop_node.state == new_state):
+
                 new_root = loop_node
                 break
 
         if new_root == 0:
+
             new_root = Node(new_state)
             new_root.build_actionspace()
             new_root.build_edges()
-            new_state = torch.from_numpy(np.array(new_state)).float()
-            prediction_value, probabilities = self.network(new_state)
-            new_root.probabilities = probabilities
+
+            tensor = torch.zeros(2,49)
+            mirror_state = copy.copy(new_state)
+            mirror_state[-3] = 1
+            tensor[0] = torch.from_numpy(np.array(new_state)).float()
+            tensor[1] = torch.from_numpy(np.array(mirror_state)).float()
+            prediction_value, probabilities = self.network(tensor)
+            probabilities = probabilities.detach()
+            new_root.probabilities = probabilities[0]
+            new_root.mirror_probs = probabilities[1]
+
         self.tree.root = new_root
 
 

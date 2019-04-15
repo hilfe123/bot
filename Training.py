@@ -84,6 +84,7 @@ class Training:
         probabilities = probabilities.detach()
         node.probabilities = probabilities[0]
         node.mirror_probs = probabilities[1]
+        node.v = prediction_value[0]
 
     def build_state(self,env_action,black_score,white_score):
         new_black_state =  copy.copy(self.tree.root.state)
@@ -149,10 +150,9 @@ class Training:
             done = False
 
             while not done:
-                for counter in range (0,400):
+                for counter in range (0,450):
                    self.tree.simulation()
 
-                #print(self.tree.root.state)
                 action_edge ,mc_prob = self.pick_action(self.tree.root)
                 mc_prob = self.build_mc_prob(mc_prob)
                 self.trajectory.insert(mc_prob,copy.copy(self.tree.root.state),index)

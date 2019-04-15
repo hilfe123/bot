@@ -7,6 +7,7 @@ class Node:
         self.edges = []
         self.probabilities = []
         self.mirror_probs = []
+        self.v = 0
 
     def build_actionspace(self):
         if self.state[-3] == 0:

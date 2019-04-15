@@ -5,7 +5,6 @@ import random
 import torch
 import copy
 import math
-#Save alternative game state probs in node
 
 class Tree:
     def __init__(self, network):
@@ -24,34 +23,11 @@ class Tree:
         self.root.build_actionspace()
         self.root.build_edges()
 
-    def update_values(self, outcome, edges):
+    def update_values(self, v, edges):
         for edge in edges:
             edge.visits += 1
-            edge.totalactionvalue += outcome
+            edge.totalactionvalue += v
             edge.actionvalue = edge.totalactionvalue / edge.visits
-
-    def do_random_actions(self, black_player,node):
-        node = node
-        self.env.deck = (node.state[30:46])
-        while not self.env.check_status():
-            if black_player:
-                black_actionspace = node.actionspace
-                black_action = random.choice(black_actionspace)
-                white_actionspace = node.state[15:30]
-                white_actionspace = [i for i in white_actionspace if i != 0]
-                white_action = random.choice(white_actionspace)
-                env_action = self.env.step(black_action, white_action)
-                black_score, white_score = self.env.get_player_scores()
-                node = self.build_node(node.state, env_action, black_action, white_action, black_score, white_score)
-            else:
-                white_actionspace = node.actionspace
-                white_action = random.choice(white_actionspace)
-                black_actionspace = node.state[0:15]
-                black_actionspace = [i for i in black_actionspace if i != 0]
-                black_action = random.choice(black_actionspace)
-                env_action = self.env.step(black_action, white_action)
-                black_score, white_score = self.env.get_player_scores()
-                node = self.build_node(node.state, env_action, black_action, white_action, black_score, white_score)
 
     def set_probabilities(self, node):
         mirror_state = copy.copy(node.state)
@@ -63,8 +39,10 @@ class Tree:
         tensor[1] = torch.from_numpy(np.array(mirror_state)).float()
         prediction_value, probabilities = self.network(tensor)
         probabilities = probabilities.detach()
+        prediction_value = prediction_value.detach()
         node.probabilities = probabilities[0]
         node.mirror_probs = probabilities[1]
+        node.v = prediction_value[0]
 
     """
     Sample actions from the probability distribution of the mirror state [1] instead of [0] or otherwise.
@@ -111,18 +89,19 @@ class Tree:
         node = self.root
         done = False
         edge_buffer = []
-        c = (len(node.actionspace)/2) * 0.15
+        c = 0.75
 
         while not done:
-            black_player = True if node.state[-3]==0 else False
-            actionvalues = [edge.actionvalue for edge in node.edges]
 
+            black_player = True if node.state[-3]==0 else False
+
+            actionvalues = [edge.actionvalue for edge in node.edges]
             visits = [edge.visits for edge in node.edges]
             total_visits = sum(visits)
             total_visits_sqrt = math.sqrt(total_visits)
 
             actions = node.actionspace
-            probs = [node.probabilities[i - 1] for i in actions]  # node.probabilities[i - 1] torch.tensor([1])
+            probs = [node.probabilities[i - 1] for i in actions]
 
             upper_bounds = [(c * prob.item() * (total_visits_sqrt / (1 + visit))) for prob, visit in zip(probs, visits)]
 
@@ -160,6 +139,8 @@ class Tree:
             contains = False
 
             for loop_node in chosen_edge.targetNodes:
+                #[0:30] , but node = new_node to simulate further
+                #also need to change build_node but otherwise parallel to this class
                 if all(loop_node.state == new_node.state):
                     edge_buffer.append(chosen_edge)
                     node = loop_node
@@ -170,17 +151,11 @@ class Tree:
                 self.set_probabilities(new_node)
                 chosen_edge.targetNodes.append(new_node)
                 edge_buffer.append(chosen_edge)
-                contains = True
-                child_added = True
                 node = new_node
-
-            if not contains and child_added:
-                self.do_random_actions(black_player,new_node)
+                break
 
             done = self.env.check_status()
-
-        game_outcome = self.env.eval_game()
-        self.update_values(game_outcome, edge_buffer)
+        self.update_values(node.v, edge_buffer)
 
 
 

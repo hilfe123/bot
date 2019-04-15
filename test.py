@@ -13,5 +13,11 @@ import numpy as np
 #print("Version3")
 #print(v2.item())
 #print(probs2)
-tensor = torch.Tensor(3,3)
-tensor[0] = torch.Tensor([3,3,3])
+class Test:
+    def __init__(self,int):
+        self.int = torch.tensor([int])
+
+softmax = torch.nn.Softmax(dim=1)
+tensor = torch.tensor([1,2,3])
+tensor2 = softmax(tensor.float().unsqueeze(dim=1))
+print("Dummy")
