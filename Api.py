@@ -1,7 +1,7 @@
 import torch
 from Network import Network
 from Environment import Environment
-from Tree import Tree
+from Tree import Tree as Tree
 from Node import Node
 import copy
 import numpy as np
@@ -9,13 +9,12 @@ from operator import attrgetter
 
 class Api:
     def __init__(self):
-        self.network = Network(49,256)
+        self.network = Network(49,128)
+        self.network.load_state_dict(torch.load(r"C:\Users\Abgedrehter Alman\PycharmProjects\bot\model"))
+        self.network.eval()
         self.env = Environment()
         self.tree = Tree(self.network)
         self.tree.init_tree()
-
-    def init_net(self):
-        self.network.load_state_dict(torch.load(r'C:\Users\Abgedrehter Alman\PycharmProjects\AGZ\model3'))
 
     def build_state(self,node,action0,action1,env_action,player0score,player1score):
         new_state = copy.copy(node.state)
@@ -30,24 +29,25 @@ class Api:
         new_root = 0
         node = self.tree.root
         for i in range(0,800):
-            self.tree.simulation()
+            self.tree.double_root_simulation()
         action_edge = max(node.edges,key=attrgetter('visits'))
         bot_action = action_edge.action
         bot_score,random_score = self.env.update_values(bot_action,random_action,env_action)
         x,y = self.tree.env.update_values(bot_action,random_action,env_action)
         new_state = self.build_state(self.tree.root,bot_action,random_action,env_action,bot_score,random_score)
+        print(new_state)
 
         for loop_node in action_edge.targetNodes:
             if all(loop_node.state == new_state):
 
                 new_root = loop_node
+                print(new_root.v.item())
                 break
 
         if new_root == 0:
 
             new_root = Node(new_state)
-            new_root.build_actionspace()
-            new_root.build_edges()
+            new_root.build_actions()
 
             tensor = torch.zeros(2,49)
             mirror_state = copy.copy(new_state)
@@ -58,6 +58,7 @@ class Api:
             probabilities = probabilities.detach()
             new_root.probabilities = probabilities[0]
             new_root.mirror_probs = probabilities[1]
+            print(prediction_value[0].item())
 
         self.tree.root = new_root
 

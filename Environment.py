@@ -34,6 +34,9 @@ class Environment:
         local_deck = np.array([i for i in self.deck if i != 0])
         target_card = np.random.choice(local_deck)
         self.deck[target_card+5] = 0
+
+        if action0 == action1:
+            return target_card
         if action0 > action1 and target_card > 0:
             self.player0score += target_card
         if action0 > action1 and target_card < 0:
