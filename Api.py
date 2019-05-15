@@ -10,59 +10,54 @@ from operator import attrgetter
 class Api:
     def __init__(self):
         self.network = Network(49,128)
-        self.network.load_state_dict(torch.load(r"C:\Users\Abgedrehter Alman\PycharmProjects\bot\model"))
+        self.network.load_state_dict(torch.load(r'C:\Users\Abgedrehter Alman\PycharmProjects\bot\models and trajectory\model3'))
         self.network.eval()
         self.env = Environment()
         self.tree = Tree(self.network)
         self.tree.init_tree()
 
-    def build_state(self,node,action0,action1,env_action,player0score,player1score):
-        new_state = copy.copy(node.state)
-        new_state[action0 - 1] = 0
-        new_state[action1 + 14] = 0
-        new_state[env_action + 35] = 0
-        new_state[-1] = player1score
-        new_state[-2] = player0score
-        return new_state
+    def build_states(self,state,bot_action,enemy_action,env_action,black_score,white_score):
+        new_black_state =  copy.copy(state)
+        new_black_state[-1]=white_score
+        new_black_state[-2]=black_score
+        new_black_state[-3]=0
+        new_black_state[env_action+35]=0
+        new_black_state[bot_action-1] = 0
+        new_black_state[enemy_action+14] = 0
+
+        new_white_state = copy.copy(new_black_state)
+        new_white_state[-3]=1
+        return new_black_state,new_white_state
+
+    def set_probabilities(self, node):
+        tensor = torch.from_numpy(np.array(node.state)).unsqueeze(dim=0).float()
+        prediction_value, probabilities = self.network(tensor)
+        probabilities = probabilities.detach().t()
+        prediction_value = prediction_value.detach()
+        node.probabilities = [ probabilities[action-1].item() for action in node.actionspace]
+        node.v = prediction_value
 
     def do_action(self,random_action,env_action):
-        new_root = 0
-        node = self.tree.root
-        for i in range(0,800):
-            self.tree.double_root_simulation()
-        action_edge = max(node.edges,key=attrgetter('visits'))
+        for i in range(0,1600):
+            self.tree.env.set_env(self.tree.black_root.state)
+            self.tree.double_agent_simulation()
+        action_edge = max(self.tree.black_root.edges,key=attrgetter('visits'))
         bot_action = action_edge.action
         bot_score,random_score = self.env.update_values(bot_action,random_action,env_action)
-        x,y = self.tree.env.update_values(bot_action,random_action,env_action)
-        new_state = self.build_state(self.tree.root,bot_action,random_action,env_action,bot_score,random_score)
-        print(new_state)
+        self.tree.env.update_values(bot_action,random_action,env_action)
 
-        for loop_node in action_edge.targetNodes:
-            if all(loop_node.state == new_state):
+        black_state , white_state = self.build_states(self.tree.black_root.state,bot_action,random_action,env_action,bot_score,random_score)
+        black_root = Node(black_state)
+        black_root.build_actions()
+        self.set_probabilities(black_root)
+        print(black_root.v.item())
 
-                new_root = loop_node
-                print(new_root.v.item())
-                break
+        white_root = Node(white_state)
+        white_root.build_actions()
+        self.set_probabilities(white_root)
 
-        if new_root == 0:
-
-            new_root = Node(new_state)
-            new_root.build_actions()
-
-            tensor = torch.zeros(2,49)
-            mirror_state = copy.copy(new_state)
-            mirror_state[-3] = 1
-            tensor[0] = torch.from_numpy(np.array(new_state)).float()
-            tensor[1] = torch.from_numpy(np.array(mirror_state)).float()
-            prediction_value, probabilities = self.network(tensor)
-            probabilities = probabilities.detach()
-            new_root.probabilities = probabilities[0]
-            new_root.mirror_probs = probabilities[1]
-            print(prediction_value[0].item())
-
-        self.tree.root = new_root
-
-
+        self.tree.black_root = black_root
+        self.tree.white_root = white_root
 
         done = self.env.check_status()
         if done:

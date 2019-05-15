@@ -3,49 +3,36 @@ import copy
 class Environment:
     def __init__(self):
         self.deck = np.arange(-5,11)
-        self.curr_deck = np.arange(-5,11)
-        self.player0score = 0
-        self.player1score = 0
+        self.black_score = 0
+        self.white_score = 0
 
+    def set_env(self,state):
+        self.deck = copy.copy(state[30:46])
+        self.black_score = copy.copy(state[-2])
+        self.white_score = copy.copy(state[-1])
+    
     def full_reset(self):
         self.deck = np.arange(-5, 11)
-        self.curr_deck = np.arange(-5, 11)
-        self.player0score = 0
-        self.player1score = 0
+        self.black_score = 0
+        self.white_score = 0
 
+    def step(self,black_action,white_action):
 
-    def reset_env(self):
-        self.deck = copy.copy(self.curr_deck)
-        self.player0score = 0
-        self.player1score = 0
-
-    def reset_deck(self):
-        self.deck = copy.copy(self.curr_deck)
-
-    def reset49(self,player0buffer,player1buffer):
-        self.deck = copy.copy(self.curr_deck)
-        self.player0score = player0buffer
-        self.player1score = player1buffer
-
-    def update_env(self,deck):
-        self.curr_deck = deck
-
-    def step(self,action0,action1):
         local_deck = np.array([i for i in self.deck if i != 0])
-        target_card = np.random.choice(local_deck)
-        self.deck[target_card+5] = 0
+        env_action = np.random.choice(local_deck)
+        self.deck[env_action+5] = 0
 
-        if action0 == action1:
-            return target_card
-        if action0 > action1 and target_card > 0:
-            self.player0score += target_card
-        if action0 > action1 and target_card < 0:
-            self.player1score += target_card
-        if action0 < action1 and target_card > 0:
-            self.player1score += target_card
-        if action0 < action1 and target_card < 0:
-            self.player0score += target_card
-        return target_card
+        if black_action == white_action:
+            return env_action
+        if black_action > white_action and env_action > 0:
+            self.black_score += env_action
+        if black_action > white_action and env_action < 0:
+            self.white_score += env_action
+        if black_action < white_action and env_action > 0:
+            self.white_score += env_action
+        if black_action < white_action and env_action < 0:
+            self.black_score += env_action
+        return env_action
 
     def check_status(self):
         if all (i==0 for i in self.deck):
@@ -53,25 +40,23 @@ class Environment:
         else: return False
 
     def eval_game(self):
-        if self.player0score > self.player1score:
+        if self.black_score > self.white_score:
             return 1
-        if self.player0score < self.player1score:
+        if self.black_score < self.white_score:
             return -1
-        if self.player0score == self.player1score:
+        if self.black_score == self.white_score:
             return 0
 
     def get_player_scores(self):
-        return [self.player0score,self.player1score]
+        return [self.black_score,self.white_score]
 
-    def update_values(self,bot_action,random_action,target_card):
-        #self.deck[target_card + 5] = 0
-        if bot_action > random_action and target_card > 0:
-            self.player0score += target_card
-        if bot_action > random_action and target_card < 0:
-            self.player1score += target_card
-        if bot_action < random_action and target_card > 0:
-            self.player1score += target_card
-        if bot_action < random_action and target_card < 0:
-            self.player0score += target_card
-        self.curr_deck[target_card+5]=0
-        return [self.player0score,self.player1score]
+    def update_values(self,bot_action,random_action,env_action):
+        if bot_action > random_action and env_action > 0:
+            self.black_score += env_action
+        if bot_action > random_action and env_action < 0:
+            self.white_score += env_action
+        if bot_action < random_action and env_action > 0:
+            self.white_score += env_action
+        if bot_action < random_action and env_action < 0:
+            self.black_score += env_action
+        return [self.black_score,self.white_score]

@@ -4,4 +4,4 @@ class Edge:
         self.visits = 0
         self.actionvalue = 0
         self.totalactionvalue = 0
-        self.targetNodes = []
+        self.children = []

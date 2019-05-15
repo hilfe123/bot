@@ -4,12 +4,8 @@ import torch
 
 network1 = Network(49,128)
 
-dir1 = r"C:\Users\Abgedrehter Alman\PycharmProjects\bot\model"
+dir1 = r"C:\Users\Abgedrehter Alman\PycharmProjects\bot\models and trajectory\model3"
 
-network1.load_state_dict(torch.load(dir1))
-network1.eval()
-
-#3 Layers 128 Neurons
-training = Training(network1,dir1,False)
+training = Training(dir1)
 training.train()
 

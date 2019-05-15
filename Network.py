@@ -1,12 +1,10 @@
 import torch
-#need to search for network architecture
+
 class Network(torch.nn.Module):
     def __init__(self, input_size, hidden_size):
         super(Network, self).__init__()
         self.linear = torch.nn.Linear(input_size, hidden_size)
         self.linear2 = torch.nn.Linear(hidden_size, hidden_size)
-        #self.linear3 = torch.nn.Linear(hidden_size, hidden_size)
-        #self.linear4 = torch.nn.Linear(hidden_size, hidden_size)
         self.head1 = torch.nn.Linear(hidden_size,15)
         self.head2 = torch.nn.Linear(hidden_size , 1)
         self.softmax = torch.nn.Softmax(dim=1)
@@ -18,10 +16,6 @@ class Network(torch.nn.Module):
         out = self.ReLU(out)
         out = self.linear2(out)
         out = self.ReLU(out)
-        #out = self.linear3(out)
-        #out = self.ReLU(out)
-        #out = self.linear4(out)
-        #out = self.ReLU(out)
         state_value = self.head2(out)
         state_value = torch.tanh(state_value)
         probabilities = self.head1(out)
