@@ -10,7 +10,7 @@ from operator import attrgetter
 class Api:
     def __init__(self):
         self.network = Network(49,128)
-        self.network.load_state_dict(torch.load(r'C:\Users\Abgedrehter Alman\PycharmProjects\bot\models and trajectory\model3'))
+        self.network.load_state_dict(torch.load(r'C:\Users\User\PycharmProjects\bot\models and trajectory\model3'))
         self.network.eval()
         self.env = Environment()
         self.tree = Tree(self.network)
