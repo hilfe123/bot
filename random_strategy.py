@@ -39,7 +39,7 @@ while do:
             print("Bot: " + str(botscore))
             print("Random: " + str(randomscore))
             if botscore > 0 or randomscore > 0 :
-                print("Winrate: " + str(botscore/(randomscore+botscore)))
+                print("Winrate: " + str(botscore/(randomscore+botscore+draw)))
             if botscore + randomscore + draw == 50:
                 do = False
                 break

@@ -267,3 +267,52 @@ class Training:
                             self.curr_network.load_state_dict(torch.load(self.dir))
                             self.curr_network.eval()
 
+    def testing(self):
+        training = True
+
+        while training:
+            tree = Tree(self.curr_network)
+
+            tree.black_root = Node(
+                np.array([
+                    0, 0, 0, 0, 5, 6, 7, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 5, 6, 7, 0, 0, 0, 0, 0, 0, 0,
+                    0,
+                    0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 5, 6, 7, 0, 0, 0, 0, 0, 0])
+            )
+            tree.black_root.build_actions()
+            tree.set_probabilities(tree.black_root)
+
+            tree.white_root = Node(np.array([
+                    0, 0, 0, 0, 5, 6, 7, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 5, 6, 7, 0, 0, 0, 0, 0, 0, 0,
+                    0,
+                    0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 5, 6, 7, 0, 0, 0, 1, 0, 0])
+            )
+            tree.white_root.build_actions()
+            tree.set_probabilities(tree.white_root)
+            self.env.set_env(tree.black_root.state)
+            done = False
+            while not done:
+                tree.noise = True
+
+                for counter in range(0, 800):
+                    tree.env.set_env(tree.black_root.state)
+                    tree.test_simulations()
+
+                black_action_edge = max(tree.black_root.edges,key=attrgetter('visits'))
+                white_action_edge = max(tree.white_root.edges,key=attrgetter('visits'))
+                black_mc_prob = self.build_mc_prob(tree.black_root)
+                print([edge.visits for edge in tree.black_root.edges])
+                white_mc_prob = self.build_mc_prob(tree.white_root)
+
+
+                env_action = self.env.step(black_action_edge.action, white_action_edge.action)
+                black_score, white_score = self.env.get_player_scores()
+                black_state, white_state = self.build_states(tree.black_root.state, black_action_edge,
+                                                             white_action_edge, env_action, black_score, white_score)
+                black_root, white_root = self.find_roots(black_state, white_state, black_action_edge, white_action_edge)
+                tree.black_root = black_root
+                tree.white_root = white_root
+
+                done = self.env.check_status()
+                if done:
+                    print(self.env.eval_game())

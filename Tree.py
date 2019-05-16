@@ -137,8 +137,8 @@ class Tree:
             env_action = self.env.step(black_action,white_action)
             black_score,white_score = self.env.get_player_scores()
 
-            new_black_node = self.build_node(self.black_root.state,env_action,black_action,white_action,black_score,white_score)
-            new_white_node = self.build_node(self.white_root.state, env_action, black_action, white_action, black_score,white_score)
+            new_black_node = self.build_node(nodes[0].state,env_action,black_action,white_action,black_score,white_score)
+            new_white_node = self.build_node(nodes[1].state, env_action, black_action, white_action, black_score,white_score)
             new_roots = [new_black_node,new_white_node]
 
             root_finder = zip(new_roots,edge_buffer[edge_index:edge_index+2])
@@ -238,9 +238,9 @@ class Tree:
             env_action = self.env.step(black_action, white_action)
             black_score, white_score = self.env.get_player_scores()
 
-            new_black_node = self.build_node(self.black_root.state, env_action, black_action, white_action, black_score,
+            new_black_node = self.build_node(nodes[0].state.state, env_action, black_action, white_action, black_score,
                                              white_score)
-            new_white_node = self.build_node(self.white_root.state, env_action, black_action, white_action, black_score,
+            new_white_node = self.build_node(nodes[1].state.state, env_action, black_action, white_action, black_score,
                                              white_score)
             new_roots = [new_black_node, new_white_node]
 
@@ -336,3 +336,127 @@ class Tree:
             edge.totalactionvalue += v[index].item()
             edge.actionvalue = edge.totalactionvalue / edge.visits
 
+
+    def test_simulations(self):
+
+        child_added = False
+        done = False
+        edge_buffer = []
+        edge_index = 0
+        c = 5
+        dir_dist = 0.09
+        epsilon = 0.25
+
+        if not self.noise:
+            dir_noise1 = np.random.dirichlet(alpha=np.full((len(self.black_root.actionspace), 1), dir_dist).flatten())
+            self.black_root.probabilities = [(1 - epsilon) * prob + epsilon * noise for prob, noise in zip(self.black_root.probabilities, dir_noise1)]
+            dir_noise2 = np.random.dirichlet(alpha=np.full((len(self.white_root.actionspace), 1), dir_dist).flatten())
+            self.white_root.probabilities = [(1 - epsilon) * prob + epsilon * noise for prob, noise in zip(self.white_root.probabilities, dir_noise2)]
+            self.noise = True
+
+        nodes = np.array([self.black_root,self.white_root])
+
+        while not done:
+
+            white_action = 0
+            black_action = 0
+
+            for node in nodes:
+
+                black_player = True if node.state[-3]==0 else False
+
+                actionvalues = [edge.actionvalue for edge in node.edges]
+                visits = [edge.visits for edge in node.edges]
+                total_visits = sum(visits)
+                total_visits_sqrt = math.sqrt(total_visits)
+
+                probs = node.probabilities
+                probs = [1 / len(probs) for prob in probs]
+
+                upper_bounds = [(c * prob * (total_visits_sqrt / (1 + visit))) for prob, visit in zip(probs, visits)]
+
+                if node.state[-3] == 1:
+                    upper_bounds = [-bound for bound in upper_bounds]
+
+                edge_values = [q + u for q, u in zip(actionvalues, upper_bounds)]
+
+                if all(x == edge_values[0] for x in edge_values):
+                    chosen_edge = random.choice(node.edges)
+
+                    if black_player:
+                        black_action = chosen_edge.action
+
+                    else:
+                        white_action = chosen_edge.action
+                else:
+
+                    if black_player:
+                        action_index = edge_values.index(max(edge_values))
+                        chosen_edge = node.edges[action_index]
+                        black_action = chosen_edge.action
+
+                    else:
+                        action_index = edge_values.index(edge_values[0])#
+                        action_index = edge_values.index(random.choice(edge_values))
+                        chosen_edge = node.edges[action_index]
+                        white_action = chosen_edge.action
+
+                edge_buffer.append(chosen_edge)
+
+            env_action = self.env.step(black_action,white_action)
+            black_score,white_score = self.env.get_player_scores()
+
+            new_black_node = self.build_node(nodes[0].state,env_action,black_action,white_action,black_score,white_score)
+            new_white_node = self.build_node(nodes[1].state, env_action, black_action, white_action, black_score,white_score)
+            new_roots = [new_black_node,new_white_node]
+
+            root_finder = zip(new_roots,edge_buffer[edge_index:edge_index+2])
+
+            counter = 0
+            for root_finder_obj in root_finder:
+                child_added = False
+                contains = False
+                if not child_added:
+                    for loop_node in root_finder_obj[1].children:
+                        if all(loop_node.state == root_finder_obj[0].state):
+                            nodes[counter] = loop_node
+                            contains = True
+                            counter +=1
+                            break
+
+                if not contains:
+                    self.set_probabilities(root_finder_obj[0])
+                    root_finder_obj[1].children.append(root_finder_obj[0])
+                    nodes[counter] = new_roots[counter]
+                    counter +=1
+                    child_added = True
+                    contains = True
+
+            done = self.env.check_status()
+            if child_added and not done:
+                while not done:
+                    black_actionspace = new_black_node.actionspace
+                    white_actionspace = new_white_node.actionspace
+                    black_action = random.choice(black_actionspace)
+                    white_action = random.choice(white_actionspace)
+                    env_action = self.env.step(black_action, white_action)
+                    black_score, white_score = self.env.get_player_scores()
+                    new_black_node = self.build_node(new_black_node.state, env_action, black_action, white_action,
+                                                     black_score, white_score)
+                    new_white_node = self.build_node(new_white_node.state, env_action, black_action, white_action,
+                                                     black_score, white_score)
+                    done = self.env.check_status()
+
+            edge_index += 2
+            if contains and not child_added:
+                done = self.env.check_status()
+        winner = self.env.eval_game()
+
+        self.test_update_v(winner,edge_buffer)
+
+
+    def test_update_v(self,winner,edge_buffer):
+        for edge in edge_buffer:
+            edge.visits += 1
+            edge.totalactionvalue += winner
+            edge.actionvalue = edge.totalactionvalue / edge.visits
